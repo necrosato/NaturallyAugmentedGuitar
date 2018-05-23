@@ -64,9 +64,9 @@ int16_t gz_mapped_prev = 0;
     #define ANALOG_MAX 1023
 #endif
 #define BUTTON_CHANNEL 23   
-#define FSR0_CHANNEL 27     
-#define FSR1_CHANNEL 26     
-#define FSR2_CHANNEL 25     
+#define FSR0_CHANNEL 27 // Behind the neck    
+#define FSR1_CHANNEL 26 // Foot switch 
+#define FSR2_CHANNEL 25 // Pick
 #define HOTPOT_CHANNEL 14   
 #define SOFTPOT0_CHANNEL 13 
 #define SOFTPOT1_CHANNEL 12 
