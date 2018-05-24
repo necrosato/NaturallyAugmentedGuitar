@@ -50,11 +50,11 @@ While I could continually map the values of the soft potentiometers to other eff
 
 ### Issues and Revisions
 
-When testing, everything worked properly. I was recieving clean data from all sensors connected to the ESP32 through a breadboard. All sensors were producing mostly-linear data along a full 12-bit range. After wiring everything to the guitar and attaching the sensors with permanent adhesive, one of the 200 mm soft pot strips had a momentary short resulting in some permanent damage. It now produces random low data when no pressure is applied.
+When testing, everything worked properly. I was recieving clean data from all sensors connected to the ESP32 through a breadboard. All sensors were producing mostly-linear data along a full 12-bit range. After wiring everything to the guitar and attaching the sensors with permanent adhesive, one of the 200 mm soft pot strips had a momentary short resulting in some permanent damage. It now intermittently produces random low data when no pressure is applied.
 
-There is another issue in the 400 mm strip. It is no longer producing data linearly. But instead starts producing data at 200 mm and scales more exponentially. 
+There is another issue in the 400 mm strip. It is no longer producing linear data. It seems to be more exponential instead. For example, pressing at 200 mm out of 400 mm produces a 12-bit value of around 1024 out of 4095 when it should be closer to 2048.
 
-Finally, the long fsr essentially does not work for any useful sensing. When testing the hot potentiometer strip on top of the fsr, both produced clean data. After adhering the potentiometer strip to the fsr, the fsr constantly senses slightly-random, almost-maximal pressure. I wired a 4.7k ohm resistor in line to reduce its current consumption.
+Finally, the long fsr essentially does not work for any useful sensing. When initially testing the hot potentiometer strip on top of the fsr, both produced clean data. After adhering the potentiometer strip to the fsr, the fsr constantly senses slightly-random, almost-maximal pressure. I wired a 4.7k ohm resistor in line to reduce current load.
 
 ### Links
  
@@ -66,9 +66,13 @@ Circular FSR
 
 https://www.amazon.com/SENSING-RESISTOR-CIRCLE-1oz-22LB-FLEXIBLE/dp/B00B887CLS/ref=sr_1_3?s=industrial&ie=UTF8&qid=1524955596&sr=1-3&keywords=0.5+in+fsr
 
-500 mm HotPot
+Extra long FSR
 
-https://www.amazon.com/SPECTRA-SYMBOLLINEAR-HOTPOT-500-MM/dp/B00FPXIBXU/ref=pd_sbs_328_2?_encoding=UTF8&pd_rd_i=B00FPXIBXU&pd_rd_r=E5E02TDHPB4VSEH7Y0HQ&pd_rd_w=PgOp5&pd_rd_wg=oZd96&psc=1&refRID=E5E02TDHPB4VSEH7Y0HQ
+https://www.adafruit.com/product/1071
+
+400 mm HotPot
+
+https://www.amazon.com/SPECTRA-SYMBOLLINEAR-HOTPOT-400-MM/dp/B00FPXIBCQ/ref=sr_1_1?ie=UTF8&qid=1527091329&sr=8-1&keywords=400+mm+hotpot
 
 200 mm SoftPot
 
@@ -77,10 +81,6 @@ https://www.amazon.com/SPECTRA-SYMBOL-SoftPot-Membrane-Potentiometer/dp/B004G4XU
 MPU 6050
 
 https://www.amazon.com/gp/product/B008BOPN40/ref=oh_aui_detailpage_o04_s00?ie=UTF8&psc=1 
-
-Flex Sensor
-
-https://www.amazon.com/Adafruit-Long-Flex-sensor-ADA182/dp/B01BNNNS5Q/ref=pd_sbs_147_2?_encoding=UTF8&pd_rd_i=B01BNNNS5Q&pd_rd_r=N8E1BA231KX5JFVCEGPQ&pd_rd_w=agg10&pd_rd_wg=E6QIS&psc=1&refRID=N8E1BA231KX5JFVCEGPQ
 
 Enda Bates
 
