@@ -18,7 +18,6 @@ MPU6050 accelgyro;
 // default sda is 21 and scl is 22 on esp 32
 
 // MPU control/status vars
-bool dmpReady = false;  // set true if DMP init was successful
 uint8_t accelgyroIntStatus;   // holds actual interrupt status byte from MPU
 uint8_t devStatus;      // return status after each device operation (0 = success, !0 = error)
 uint16_t packetSize;    // expected DMP packet size (default is 42 bytes)
@@ -27,11 +26,7 @@ uint8_t fifoBuffer[64]; // FIFO storage buffer
 
 // orientation/motion vars
 Quaternion q;           // [w, x, y, z]         quaternion container
-VectorInt16 aa;         // [x, y, z]            accel sensor measurements
-VectorInt16 aaReal;     // [x, y, z]            gravity-free accel sensor measurements
-VectorInt16 aaWorld;    // [x, y, z]            world-frame accel sensor measurements
 VectorFloat gravity;    // [x, y, z]            gravity vector
-float euler[3];         // [psi, theta, phi]    Euler angle container
 float ypr[3];           // [yaw, pitch, roll]   yaw/pitch/roll container and gravity vector
 
 #define AG_MAP_MIN 0
@@ -123,26 +118,12 @@ void get_ypr() {
         fifoCount -= packetSize;
         // quaternion values in easy matrix form: w x y z
         accelgyro.dmpGetQuaternion(&q, fifoBuffer);
-        // Euler angles in degrees
-        accelgyro.dmpGetEuler(euler, &q);
         // ypr angles in degrees
         accelgyro.dmpGetGravity(&gravity, &q);
         accelgyro.dmpGetYawPitchRoll(ypr, &q, &gravity);
-        /*
-        // real acceleration, adjusted to remove gravity
-        accelgyro.dmpGetAccel(&aa, fifoBuffer);
-        accelgyro.dmpGetLinearAccel(&aaReal, &aa, &gravity);
-        // display initial world-frame acceleration, adjusted to remove gravity
-        // and rotated based on known orientation from quaternion
-        accelgyro.dmpGetLinearAccel(&aaReal, &aa, &gravity);
-        accelgyro.dmpGetLinearAccelInWorld(&aaWorld, &aaReal, &q);
-        yaw = map(ypr[0] * 180/M_PI, -180, 180, 0, 127);
-        pitch = map(ypr[1] * 180/M_PI, -90, 90, 0, 127);
-        roll = map(ypr[2] * 180/M_PI, -90, 90, 0, 127);
-        */
-        yaw = int(ypr[0]* 180/M_PI) + 180;
-        pitch = int(ypr[1]* 180/M_PI) + 180;
-        roll = int(ypr[2]* 180/M_PI) + 180;
+        yaw = (uint16_t) (ypr[0]* 180/M_PI + 180);
+        pitch = (uint16_t) (ypr[1]* 180/M_PI + 90);
+        roll = (uint16_t) (ypr[2]* 180/M_PI + 90);
     }
 }
 
@@ -316,7 +297,6 @@ void setup() {
     #endif
 
     // initialize serial communication
-    //Serial.begin(9600);
     Serial.begin(115200);
 
     // initialize device
@@ -343,7 +323,6 @@ void setup() {
         // turn on the DMP, now that it's ready
         Serial.println(F("Enabling DMP..."));
         accelgyro.setDMPEnabled(true);
-        dmpReady = true;
         // get expected DMP packet size for later comparison
         packetSize = accelgyro.dmpGetFIFOPacketSize();
     } else {

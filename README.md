@@ -50,7 +50,7 @@ While I could continually map the values of the soft potentiometers to other eff
 
 ### Issues and Revisions
 
-When testing, everything worked properly. I was recieving clean data from all sensors connected to the ESP32 through a breadboard. All sensors were producing mostly-linear data along a full 12-bit range. After wiring everything to the guitar and attaching the sensors with permanent adhesive, one of the 200 mm soft pot strips had a momentary short resulting in some permanent damage. It now intermittently produces random low data when no pressure is applied.
+When testing, everything worked properly. I was recieving clean data from all sensors connected to the ESP32 through a breadboard. All sensors were producing mostly-linear data along a full 12-bit range. After wiring everything to the guitar and attaching the sensors with permanent adhesive, one of the 200 mm soft pot strips had a momentary short resulting in some permanent damage. It now intermittently produces random low data (<600/4095) when no pressure is applied.
 
 There is another issue in the 400 mm strip. It is no longer producing linear data. It seems to be more exponential instead. For example, pressing at 200 mm out of 400 mm produces a 12-bit value of around 1024 out of 4095 when it should be closer to 2048.
 
