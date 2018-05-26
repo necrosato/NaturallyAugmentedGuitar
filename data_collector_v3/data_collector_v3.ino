@@ -1,11 +1,11 @@
-
 #define ESP32MPU
 #define ESP32
 
 // I2Cdev and MPU6050 must be installed as libraries, or else the .cpp/.h files
 // for both classes must be in the include path of your project
-#include "MPU6050.h"
+#include "MPU6050_6Axis_MotionApps20.h"
 #include "I2Cdev.h"
+#include <math.h>
 
 // Arduino Wire library is required if I2Cdev I2CDEV_ARDUINO_WIRE implementation
 // is used in I2Cdev.h
@@ -17,10 +17,30 @@ MPU6050 accelgyro;
 //MPU6050 accelgyro(0x69); // <-- use for AD0 high
 // default sda is 21 and scl is 22 on esp 32
 
+// MPU control/status vars
+bool dmpReady = false;  // set true if DMP init was successful
+uint8_t accelgyroIntStatus;   // holds actual interrupt status byte from MPU
+uint8_t devStatus;      // return status after each device operation (0 = success, !0 = error)
+uint16_t packetSize;    // expected DMP packet size (default is 42 bytes)
+uint16_t fifoCount;     // count of all bytes currently in FIFO
+uint8_t fifoBuffer[64]; // FIFO storage buffer
+
+// orientation/motion vars
+Quaternion q;           // [w, x, y, z]         quaternion container
+VectorInt16 aa;         // [x, y, z]            accel sensor measurements
+VectorInt16 aaReal;     // [x, y, z]            gravity-free accel sensor measurements
+VectorInt16 aaWorld;    // [x, y, z]            world-frame accel sensor measurements
+VectorFloat gravity;    // [x, y, z]            gravity vector
+float euler[3];         // [psi, theta, phi]    Euler angle container
+float ypr[3];           // [yaw, pitch, roll]   yaw/pitch/roll container and gravity vector
+
 #define AG_MAP_MIN 0
 #define AG_MAP_MAX 127
 #define AG_MIN -32768
 #define AG_MAX 32767
+#define YAW_CHANNEL 3
+#define PITCH_CHANNEL 4
+#define ROLL_CHANNEL 5
 #define AX_CHANNEL 6
 #define AY_CHANNEL 7
 #define AZ_CHANNEL 8
@@ -53,52 +73,78 @@ int16_t gx_mapped_prev = 0;
 int16_t gy_mapped_prev = 0;
 int16_t gz_mapped_prev = 0;
 
-#define ANALOG_MAP_MIN 1
-#define ANALOG_MAP_MAX_0 127
-#define ANALOG_MAP_MAX_1 8
-#define ANALOG_MAP_MAX_2 13
+int16_t yaw = 0;
+int16_t pitch = 0;
+int16_t roll = 0;
+
 #define ANALOG_MIN 0
 #ifdef ESP32
     #define ANALOG_MAX 4095
 #else
     #define ANALOG_MAX 1023
 #endif
-#define BUTTON_CHANNEL 23   
 #define FSR0_CHANNEL 27 // Behind the neck    
 #define FSR1_CHANNEL 26 // Foot switch 
 #define FSR2_CHANNEL 25 // Pick
 #define HOTPOT_CHANNEL 14   
 #define SOFTPOT0_CHANNEL 13 
 #define SOFTPOT1_CHANNEL 12 
-int16_t button = LOW;
 int16_t fsr0 = 0;
 int16_t fsr1 = 0;
 int16_t fsr2 = 0;
 int16_t hotpot = 0;
 int16_t softpot0 = 0;
 int16_t softpot1 = 0;
-int16_t fsr0_mapped = 0;
-int16_t fsr1_mapped = 0;
-int16_t fsr2_mapped = 0;
-int16_t hotpot_mapped = 0;
-int16_t softpot0_mapped = 0;
-int16_t softpot1_mapped = 0;
-int16_t button_prev = LOW;
 int16_t fsr0_prev = 0;
 int16_t fsr1_prev = 0;
 int16_t fsr2_prev = 0;
 int16_t hotpot_prev = 0;
 int16_t softpot0_prev = 0;
 int16_t softpot1_prev = 0;
-int16_t fsr0_mapped_prev = 0;
-int16_t fsr1_mapped_prev = 0;
-int16_t fsr2_mapped_prev = 0;
-int16_t hotpot_mapped_prev = 0;
-int16_t softpot0_mapped_prev = 0;
-int16_t softpot1_mapped_prev = 0;
 
 char channel[2] = {0};
 char data[4] = {0};
+
+void get_ypr() {
+    // get current FIFO count
+    fifoCount = accelgyro.getFIFOCount();
+    // check for overflow (this should never happen unless our code is too inefficient)
+    if (fifoCount == 1024) {
+        // reset so we can continue cleanly
+        accelgyro.resetFIFO();
+        Serial.println(F("FIFO overflow!"));
+    } else {
+        // wait for correct available data length, should be a VERY short wait
+        while (fifoCount < packetSize) fifoCount = accelgyro.getFIFOCount();
+        // read a packet from FIFO
+        accelgyro.getFIFOBytes(fifoBuffer, packetSize);
+        // track FIFO count here in case there is > 1 packet available
+        // (this lets us immediately read more without waiting for an interrupt)
+        fifoCount -= packetSize;
+        // quaternion values in easy matrix form: w x y z
+        accelgyro.dmpGetQuaternion(&q, fifoBuffer);
+        // Euler angles in degrees
+        accelgyro.dmpGetEuler(euler, &q);
+        // ypr angles in degrees
+        accelgyro.dmpGetGravity(&gravity, &q);
+        accelgyro.dmpGetYawPitchRoll(ypr, &q, &gravity);
+        /*
+        // real acceleration, adjusted to remove gravity
+        accelgyro.dmpGetAccel(&aa, fifoBuffer);
+        accelgyro.dmpGetLinearAccel(&aaReal, &aa, &gravity);
+        // display initial world-frame acceleration, adjusted to remove gravity
+        // and rotated based on known orientation from quaternion
+        accelgyro.dmpGetLinearAccel(&aaReal, &aa, &gravity);
+        accelgyro.dmpGetLinearAccelInWorld(&aaWorld, &aaReal, &q);
+        yaw = map(ypr[0] * 180/M_PI, -180, 180, 0, 127);
+        pitch = map(ypr[1] * 180/M_PI, -90, 90, 0, 127);
+        roll = map(ypr[2] * 180/M_PI, -90, 90, 0, 127);
+        */
+        yaw = int(ypr[0]* 180/M_PI) + 180;
+        pitch = int(ypr[1]* 180/M_PI) + 180;
+        roll = int(ypr[2]* 180/M_PI) + 180;
+    }
+}
 
 void map_accel() {
     ax_mapped = map(ax, AG_MIN, AG_MAX, AG_MAP_MIN, AG_MAP_MAX);
@@ -112,15 +158,6 @@ void map_gyro() {
     gz_mapped = map(gz, AG_MIN, AG_MAX, AG_MAP_MIN, AG_MAP_MAX);
 }
 
-void map_analogs() {
-    fsr0_mapped = fsr0 == 0 ? 0 : map(fsr0, ANALOG_MIN, ANALOG_MAX, ANALOG_MAP_MIN, ANALOG_MAP_MAX_0);
-    fsr1_mapped = fsr1 == 0 ? 0 : map(fsr1, ANALOG_MIN, ANALOG_MAX, ANALOG_MAP_MIN, ANALOG_MAP_MAX_0);
-    fsr2_mapped = fsr2 == 0 ? 0 : map(fsr2, ANALOG_MIN, ANALOG_MAX, ANALOG_MAP_MIN, ANALOG_MAP_MAX_0);
-    hotpot_mapped = hotpot == 0 ? 0 : map(hotpot, ANALOG_MIN, ANALOG_MAX, ANALOG_MAP_MIN, ANALOG_MAP_MAX_2);
-    softpot0_mapped = softpot0 == 0 ? 0 : map(softpot0, ANALOG_MIN, ANALOG_MAX, ANALOG_MAP_MIN, ANALOG_MAP_MAX_1);
-    softpot1_mapped = softpot1 == 0 ? 0 : map(softpot1, ANALOG_MIN, ANALOG_MAX, ANALOG_MAP_MIN, ANALOG_MAP_MAX_1);
-}
-
 void read_accelgyro() {
     // read raw accel/gyro measurements from device
     accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
@@ -130,9 +167,6 @@ void read_accelgyro() {
 }
 
 void read_analog_sensors() {
-    // read digital button
-    button = digitalRead(BUTTON_CHANNEL);
-
     // read raw analog measurements from device
     fsr0 = analogRead(FSR0_CHANNEL);
     fsr1 = analogRead(FSR1_CHANNEL);
@@ -140,44 +174,6 @@ void read_analog_sensors() {
     hotpot = analogRead(HOTPOT_CHANNEL);
     softpot0 = analogRead(SOFTPOT0_CHANNEL);
     softpot1 = analogRead(SOFTPOT1_CHANNEL);
-    // map analogs
-    map_analogs();
-}
-
-void print_ag_raw_all() {
-    // display tab-separated accel/gyro x/y/z values
-    Serial.print("a/g:\t");
-    Serial.print(ax); Serial.print("\t");
-    Serial.print(ay); Serial.print("\t");
-    Serial.print(az); Serial.print("\t");
-    Serial.print(gx); Serial.print("\t");
-    Serial.print(gy); Serial.print("\t");
-    Serial.print(gz); Serial.print("\t");
-    Serial.println();
-}
-
-void print_ag_mapped_all() {
-    // display tab-separated accel/gyro x/y/z values
-    Serial.print("a/g:\t");
-    Serial.print(ax_mapped); Serial.print("\t");
-    Serial.print(ay_mapped); Serial.print("\t");
-    Serial.print(az_mapped); Serial.print("\t");
-    Serial.print(gx_mapped); Serial.print("\t");
-    Serial.print(gy_mapped); Serial.print("\t");
-    Serial.print(gz_mapped); Serial.print("\t");
-    Serial.println();
-}
-
-void print_analogs_mapped_all() {
-    // display tab-separated accel/gyro x/y/z values
-    Serial.print("fsr(0, 1, 2), hotpot, softpot0, softpot1:\t");
-    Serial.print(fsr0_mapped); Serial.print("\t");
-    Serial.print(fsr1_mapped); Serial.print("\t");
-    Serial.print(fsr2_mapped); Serial.print("\t");
-    Serial.print(hotpot_mapped); Serial.print("\t");
-    Serial.print(softpot0_mapped); Serial.print("\t");
-    Serial.print(softpot1_mapped); Serial.print("\t");
-    Serial.println();
 }
 
 void send_channel_data() {
@@ -207,6 +203,18 @@ void set_data(int val) {
     data[1] = (val % 1000) / 100;
     data[2] = (val % 100) / 10;
     data[3] = val % 10;
+}
+
+void send_ypr() {
+    set_channel(YAW_CHANNEL);
+    set_data(yaw);
+    send_channel_data();
+    set_channel(PITCH_CHANNEL);
+    set_data(pitch);
+    send_channel_data();
+    set_channel(ROLL_CHANNEL);
+    set_data(roll);
+    send_channel_data();
 }
 
 void send_ag_mapped_all() {
@@ -254,15 +262,6 @@ void send_ag_mapped_all() {
     gz_mapped_prev = gz_mapped;
 }
 
-void send_button() {
-    if (button_prev != button) {
-        set_channel(BUTTON_CHANNEL);
-        set_data(button);
-        send_channel_data();
-    }
-    button_prev = button;
-}
-
 void send_analogs_raw_all() {
     // FSR0
     if (fsr0_prev != fsr0) {
@@ -271,7 +270,6 @@ void send_analogs_raw_all() {
         send_channel_data();
     }
     fsr0_prev = fsr0;
-    fsr0_mapped_prev = fsr0_mapped;
     // FSR1
     if (fsr1_prev != fsr1) {
         set_channel(FSR1_CHANNEL);
@@ -279,7 +277,6 @@ void send_analogs_raw_all() {
         send_channel_data();   
     }
     fsr1_prev = fsr1;
-    fsr1_mapped_prev = fsr1_mapped;
     // FSR2
     if (fsr2_prev != fsr2) {
         set_channel(FSR2_CHANNEL);
@@ -287,7 +284,6 @@ void send_analogs_raw_all() {
         send_channel_data();
     }
     fsr2_prev = fsr2;
-    fsr2_mapped_prev = fsr2_mapped;   
     // HOTPOT
     if (hotpot_prev != hotpot) {
         set_channel(HOTPOT_CHANNEL);
@@ -295,7 +291,6 @@ void send_analogs_raw_all() {
         send_channel_data();
     }
     hotpot_prev = hotpot;
-    hotpot_mapped_prev = hotpot_mapped;
     // SOFTPOT0
     if (softpot0_prev != softpot0) {
         set_channel(SOFTPOT0_CHANNEL);
@@ -303,7 +298,6 @@ void send_analogs_raw_all() {
         send_channel_data();
     }
     softpot0_prev = softpot0;
-    softpot0_mapped_prev = softpot0_mapped;
     // SOFTPOT1
     if (softpot1_prev != softpot1) {
         set_channel(SOFTPOT1_CHANNEL);
@@ -311,62 +305,6 @@ void send_analogs_raw_all() {
         send_channel_data();
     }
     softpot1_prev = softpot1;
-    softpot1_mapped_prev = softpot1_mapped;
-}
-
-void send_analogs_mapped_all() {
-    // FSR0
-    //if (fsr0_mapped_prev != fsr0_mapped) {
-    if (fsr0_prev != fsr0) {
-        set_channel(FSR0_CHANNEL);
-        //set_data(fsr0_mapped);
-        set_data(fsr0);
-        send_channel_data();
-    }
-    fsr0_prev = fsr0;
-    fsr0_mapped_prev = fsr0_mapped;
-    // FSR1
-    if (fsr1_mapped_prev != fsr1_mapped) {
-        set_channel(FSR1_CHANNEL);
-        set_data(fsr1_mapped);
-        send_channel_data();   
-    }
-    fsr1_prev = fsr1;
-    fsr1_mapped_prev = fsr1_mapped;
-    // FSR2
-    if (fsr2_mapped_prev != fsr2_mapped) {
-        set_channel(FSR2_CHANNEL);
-        set_data(fsr2_mapped);
-        send_channel_data();
-    }
-    fsr2_prev = fsr2;
-    fsr2_mapped_prev = fsr2_mapped;   
-    // HOTPOT
-    if (hotpot_mapped_prev != hotpot_mapped) {
-    //if (hotpot_prev != hotpot) {
-        set_channel(HOTPOT_CHANNEL);
-        set_data(hotpot_mapped);
-        //set_data(hotpot);
-        send_channel_data();
-    }
-    hotpot_prev = hotpot;
-    hotpot_mapped_prev = hotpot_mapped;
-    // SOFTPOT0
-    if (softpot0_mapped_prev != softpot0_mapped) {
-        set_channel(SOFTPOT0_CHANNEL);
-        set_data(softpot0_mapped);
-        send_channel_data();
-    }
-    softpot0_prev = softpot0;
-    softpot0_mapped_prev = softpot0_mapped;
-    // SOFTPOT1
-    if (softpot1_mapped_prev != softpot1_mapped) {
-        set_channel(SOFTPOT1_CHANNEL);
-        set_data(softpot1_mapped);
-        send_channel_data();
-    }
-    softpot1_prev = softpot1;
-    softpot1_mapped_prev = softpot1_mapped;
 }
 
 void setup() {
@@ -389,21 +327,45 @@ void setup() {
     Serial.println("Testing device connections...");
     Serial.println(accelgyro.testConnection() ? "MPU6050 connection successful" : "MPU6050 connection failed");
 
-    pinMode(BUTTON_CHANNEL, INPUT);
+    delay(1000);
+
+    // load and configure the DMP
+    Serial.println(F("Initializing DMP..."));
+    devStatus = accelgyro.dmpInitialize();
+
+    // supply your own gyro offsets here, scaled for min sensitivity
+    accelgyro.setXGyroOffset(220);
+    accelgyro.setYGyroOffset(76);
+    accelgyro.setZGyroOffset(-85);
+    accelgyro.setZAccelOffset(1788); // 1688 factory default for my test chip
+    // make sure it worked (returns 0 if so)
+    if (devStatus == 0) {
+        // turn on the DMP, now that it's ready
+        Serial.println(F("Enabling DMP..."));
+        accelgyro.setDMPEnabled(true);
+        dmpReady = true;
+        // get expected DMP packet size for later comparison
+        packetSize = accelgyro.dmpGetFIFOPacketSize();
+    } else {
+        // ERROR!
+        // 1 = initial memory load failed
+        // 2 = DMP configuration updates failed
+        // (if it's going to break, usually the code will be 1)
+        Serial.print(F("DMP Initialization failed (code "));
+        Serial.print(devStatus);
+        Serial.println(F(")"));
+    }
     delay(1000);
 }
 
 void loop() {
-
     // read data
     read_analog_sensors();
     read_accelgyro();
-
+    get_ypr();
     // send data
-    send_button();
-    //send_analogs_mapped_all();
     send_analogs_raw_all();
     send_ag_mapped_all();
-
+    send_ypr();
     delay(50);
 }
