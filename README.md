@@ -11,7 +11,7 @@ For example, if I create an augmented drum kit then perhaps any modulations in s
 
 Taking Enda Bates' guitar as a concrete example, his augmented guitar is not at all natural. First, it is not in any standard tuning, rendering it useless for 'normal' use. His performance modulations come from the spatial location of the right hand and orientations of the guitar body. Both of these things he modulates after actually strumming, which is why I define them to be external to any natural guitar playing gesture.
 
-My augmented guitar is going to perform software modulations based entirely on the natural aspects of guitar playing.
+My augmented guitar is going to perform software modulations based primarily on the natural aspects of guitar playing. 
 
 ### Sensors Used
 
@@ -42,19 +42,27 @@ I chose to implement a controller in addition because I felt like controlling fo
 
 The goal of the Naturally Augmented Guitar is simply to generate data in accordance with the natural performance gestures of guitar playing. Thus, there are no strict sound outcomes associated with the instrument.
 
-One example of a sound outcome could be to use the yaw, pitch, and roll values to control the envelope of the guitar signal itself. I could map yaw to attack, pitch to decay, and roll to release. In my project I am choosing to use raw values because they are more stable, so I will probably map them to effects such as pan, wah, or pitch bend which have a "center" to return to. Because MEMS gyroscopes are intertial, I would like the effect to map properly to data which returns to a stable point.
+One example of a sound outcome could be to use the yaw, pitch, and roll values to control the envelope of the guitar signal itself. I could map yaw to attack, pitch to decay, and roll to release. 
 
 The FSR on the floor might map to some time/phase effect commonly found with guitar such as chorus, delay, or reverb. The other FSR on the pick will possibly be mapped to the distortion level of the signal. Alternatively, the floor fsr could modulate the instruments controlled by the soft potentiometers. If I do choose to use the data from the long fsr, it will probably be mapped to some parameter which favors random data.
 
-While I could continually map the values of the soft potentiometers to other effects, I will do something different here. Values coming from the soft potentiometers will be used to synthesize some sort of accompaniment for the guitar. This will demonstrate how the augmented system can be used as a general controller as well as a signal processor. 
+Specifically in my final performance, the mappings will be as follows:
+
+    Pitch of the MPU6050 mapped to High Cut Frequency of Intro intrument in Logic.
+    Roll of the MPU6050 mapped to Pan of Intro intrument in Logic.
+    
 
 ### Issues and Revisions
 
-When testing, everything worked properly. I was recieving clean data from all sensors connected to the ESP32 through a breadboard. All sensors were producing mostly-linear data along a full 12-bit range. After wiring everything to the guitar and attaching the sensors with permanent adhesive, one of the 200 mm soft pot strips had a momentary short resulting in some permanent damage. It now intermittently produces random low data (<600/4095) when no pressure is applied.
+When testing, everything worked properly. I was recieving clean data from all sensors connected to the ESP32 through a breadboard. All sensors were producing mostly-linear data along a full 12-bit range. After wiring everything to the guitar and attaching the sensors with permanent adhesive, one of the 200 mm soft pot strips had a momentary short resulting in some permanent damage. It now intermittently produces random low data (around 600/4095) when no pressure is applied.
 
 There is another issue in the 400 mm strip. It is no longer producing linear data. It seems to be more exponential instead. For example, pressing at 200 mm out of 400 mm produces a 12-bit value of around 1024 out of 4095 when it should be closer to 2048.
 
 Finally, the long fsr essentially does not work for any useful sensing. When initially testing the hot potentiometer strip on top of the fsr, both produced clean data. After adhering the potentiometer strip to the fsr, the fsr constantly senses slightly-random, almost-maximal pressure. I wired a 4.7k ohm resistor in line to reduce current load.
+
+The guitar in its current state is not extremely resistant. I originally wanted everything to fit in the original form factor of the guitar. Do to some unforseen complications in building the guitar, that did not happen. Many things are hanging off the guitar, and most of the circuitry is covered with electrical tape. This is in case modification or repairs are needed.
+
+I had taken the time to lay stips of copper tape as wiring down the neck of the guitar to replace the bundle of wires currently present. What I did not expect was for the neck of the guitar itself to be slightly conductive. In a future revision I might first cover the neck in electrical tape, or some other non-conductive layer. Pictures of my previous work included.
 
 ### Links
  
