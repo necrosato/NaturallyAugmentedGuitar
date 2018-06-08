@@ -52,7 +52,9 @@ Specifically in my final performance, the mappings will be as follows:
     Roll of the MPU6050 mapped to Pan of Intro intrument in Logic.
 
     One softpot strip mapped to Sync 2 parameter of lead instrument
-    Hotpot strip mapped to
+    Other softpot strip mapped to the digital level parameter of the Tidal Space instrument.
+    Hotpot strip mapped to drive level of one of the bass instruments.
+    
     
 
 ### Issues and Revisions
