@@ -50,6 +50,9 @@ Specifically in my final performance, the mappings will be as follows:
 
     Pitch of the MPU6050 mapped to High Cut Frequency of Intro intrument in Logic.
     Roll of the MPU6050 mapped to Pan of Intro intrument in Logic.
+
+    One softpot strip mapped to Sync 2 parameter of lead instrument
+    Hotpot strip mapped to
     
 
 ### Issues and Revisions
