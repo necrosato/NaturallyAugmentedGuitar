@@ -55,6 +55,9 @@ Specifically in my final performance, the mappings will be as follows:
     Other softpot strip mapped to the digital level parameter of the Tidal Space instrument.
     Hotpot strip mapped to drive level of one of the bass instruments.
     
+    FSR on guitar pick mapped to distortion level of live guitar signal
+    FSR on floor mapped to phaser rate of live guitar signal
+    
     
 
 ### Issues and Revisions
